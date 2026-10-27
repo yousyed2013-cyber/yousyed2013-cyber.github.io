@@ -1,2 +1,0 @@
-# F1-MISSION-CONTROL-HUB---REALTIME-COMMS.github.io
-.github.io
