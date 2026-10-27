@@ -1,0 +1,2206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>F1 // MISSION CONTROL HUB - REALTIME COMMS</title>
+
+    <!-- Font Awesome Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+      :root {
+        --bg-primary: #0b0c10;
+        --bg-secondary: #1f2833;
+        --accent-red: #e10600;
+        --accent-cyan: #66fcf1;
+        --accent-cyan-glow: rgba(102, 252, 241, 0.25);
+        --text-main: #c5a059;
+        --text-bright: #ffffff;
+        --terminal-green: #00ff66;
+        --terminal-green-glow: rgba(0, 255, 102, 0.2);
+        --panel-border: #222222;
+        --panel-border-active: #334455;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Courier New", Courier, monospace;
+      }
+
+      body {
+        background-color: var(--bg-primary);
+        color: var(--text-bright);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      header {
+        background-color: var(--bg-secondary);
+        border-bottom: 2px solid var(--accent-red);
+        padding: 10px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 54px;
+        flex-shrink: 0;
+        box-shadow: 0 4px 15px rgba(225, 6, 0, 0.15);
+        z-index: 10;
+      }
+
+      .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .logo {
+        font-weight: 900;
+        font-size: 1.25rem;
+        color: var(--accent-red);
+        letter-spacing: 2px;
+        text-shadow: 0 0 10px rgba(225, 6, 0, 0.5);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .logo-tag {
+        font-size: 0.65rem;
+        background: rgba(225, 6, 0, 0.2);
+        border: 1px solid var(--accent-red);
+        color: var(--text-bright);
+        padding: 2px 6px;
+        border-radius: 3px;
+        letter-spacing: 1px;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .site-button {
+        background-color: var(--accent-red);
+        color: var(--text-bright);
+        text-decoration: none;
+        padding: 6px 14px;
+        border-radius: 4px;
+        font-weight: bold;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border: none;
+        cursor: pointer;
+      }
+
+      .site-button:hover {
+        opacity: 0.9;
+        box-shadow: 0 0 10px rgba(225, 6, 0, 0.6);
+        transform: translateY(-1px);
+      }
+
+      .site-button.outline {
+        background: transparent;
+        border: 1px solid var(--accent-cyan);
+        color: var(--accent-cyan);
+      }
+
+      .site-button.outline:hover {
+        background: var(--accent-cyan);
+        color: #000;
+        box-shadow: 0 0 10px var(--accent-cyan-glow);
+      }
+
+      .site-button.danger {
+        background: transparent;
+        border: 1px solid var(--accent-red);
+        color: var(--accent-red);
+      }
+
+      .site-button.danger:hover {
+        background: var(--accent-red);
+        color: #fff;
+      }
+
+      .user-chip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.72rem;
+        color: #8e9aa7;
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .user-chip i {
+        color: var(--accent-cyan);
+      }
+
+      .user-chip span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 5px 10px;
+        border-radius: 20px;
+        border: 1px solid #333;
+      }
+
+      .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background-color: var(--terminal-green);
+        border-radius: 50%;
+        animation: pulse 1.5s infinite ease-in-out;
+        box-shadow: 0 0 8px var(--terminal-green);
+        will-change: transform, opacity;
+      }
+
+      .dashboard {
+        display: grid;
+        grid-template-columns: 3fr 1.2fr;
+        grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+        gap: 15px;
+        padding: 15px;
+        flex-grow: 1;
+        height: calc(100vh - 54px);
+      }
+
+      .panel {
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--panel-border);
+        border-radius: 6px;
+        padding: 15px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .panel-header {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--accent-cyan);
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--panel-border);
+        padding-bottom: 8px;
+        flex-shrink: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .panel-header .badge {
+        font-size: 0.7rem;
+        color: var(--terminal-green);
+        background: rgba(0, 255, 102, 0.1);
+        padding: 2px 8px;
+        border-radius: 10px;
+        border: 1px solid rgba(0, 255, 102, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .stream-container {
+        grid-column: 1;
+        grid-row: 1;
+        position: relative;
+        background: #000;
+        border: 2px solid var(--panel-border);
+        padding: 0;
+        overflow: hidden;
+        border-radius: 6px;
+      }
+
+      .stream-container iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 2;
+      }
+
+      .video-placeholder {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #555;
+        z-index: 1;
+      }
+
+      .video-placeholder p {
+        margin-top: 10px;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+      }
+
+      .telemetry-panel {
+        grid-column: 1;
+        grid-row: 2;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        align-items: center;
+        justify-items: center;
+        gap: 10px;
+        background: radial-gradient(
+          circle at center,
+          rgba(31, 40, 51, 0.8) 0%,
+          rgba(11, 12, 16, 0.95) 100%
+        );
+      }
+
+      .stat-box {
+        text-align: center;
+        width: 100%;
+        padding: 10px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+      }
+
+      .stat-label {
+        font-size: 0.75rem;
+        color: #888;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+      }
+
+      .stat-value {
+        font-size: 2.2rem;
+        font-weight: bold;
+        color: var(--accent-cyan);
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 0 12px var(--accent-cyan-glow);
+      }
+
+      .chat-panel {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background-color: #0c0e12;
+        border: 1px solid var(--panel-border);
+      }
+
+      .callsign-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--panel-border);
+        font-size: 0.75rem;
+        flex-shrink: 0;
+      }
+
+      .callsign-display {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-bright);
+      }
+
+      .callsign-display span {
+        color: var(--accent-cyan);
+        font-weight: bold;
+      }
+
+      .btn-change-callsign {
+        background: transparent;
+        border: 1px solid var(--accent-cyan);
+        color: var(--accent-cyan);
+        font-size: 0.65rem;
+        padding: 2px 6px;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .btn-change-callsign:hover {
+        background: var(--accent-cyan);
+        color: #000;
+      }
+
+      .chat-display {
+        flex-grow: 1;
+        overflow-y: auto;
+        font-size: 0.82rem;
+        color: var(--terminal-green);
+        background-color: #040507;
+        padding: 12px;
+        border-radius: 4px 4px 0 0;
+        border: 1px solid var(--panel-border);
+        border-bottom: none;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .chat-display::-webkit-scrollbar {
+        width: 6px;
+      }
+      .chat-display::-webkit-scrollbar-track {
+        background: #050505;
+      }
+      .chat-display::-webkit-scrollbar-thumb {
+        background: #222;
+        border-radius: 3px;
+      }
+      .chat-display::-webkit-scrollbar-thumb:hover {
+        background: var(--accent-cyan);
+      }
+
+      .chat-entry {
+        line-height: 1.45;
+        word-break: break-word;
+        padding: 4px 8px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 2px solid transparent;
+        transition: background 0.15s ease;
+      }
+
+      .chat-entry:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .chat-entry.is-me {
+        border-left: 2px solid var(--accent-cyan);
+        background: rgba(102, 252, 241, 0.04);
+      }
+
+      .chat-entry.is-system {
+        border-left: 2px solid var(--accent-red);
+        background: rgba(225, 6, 0, 0.05);
+        color: #ff8888;
+      }
+
+      .chat-time {
+        color: #666;
+        font-size: 0.72rem;
+        margin-right: 4px;
+      }
+
+      .chat-user {
+        color: var(--accent-cyan);
+        font-weight: bold;
+        margin-right: 6px;
+      }
+
+      .chat-user.self {
+        color: var(--terminal-green);
+      }
+
+      .chat-message {
+        color: var(--text-bright);
+      }
+
+      .chat-input-area {
+        display: flex;
+        border: 1px solid var(--panel-border);
+        border-radius: 0 0 4px 4px;
+        background-color: #050505;
+        flex-shrink: 0;
+      }
+
+      .chat-input-area input {
+        flex-grow: 1;
+        background: transparent;
+        border: none;
+        color: var(--text-bright);
+        padding: 12px 10px;
+        font-family: inherit;
+        font-size: 0.85rem;
+        outline: none;
+      }
+
+      .chat-input-area button {
+        background-color: var(--accent-red);
+        color: var(--text-bright);
+        border: none;
+        padding: 0 16px;
+        font-family: inherit;
+        font-weight: bold;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition:
+          opacity 0.2s,
+          background-color 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .chat-input-area button:hover {
+        background-color: #ff1a10;
+      }
+
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(4px);
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+      }
+
+      .modal-overlay.active {
+        opacity: 1;
+        pointer-events: all;
+      }
+
+      .modal-box {
+        background: var(--bg-secondary);
+        border: 2px solid var(--accent-red);
+        border-radius: 6px;
+        padding: 25px;
+        width: 90%;
+        max-width: 420px;
+        box-shadow: 0 0 30px rgba(225, 6, 0, 0.3);
+        text-align: center;
+      }
+
+      .modal-title {
+        font-size: 1.1rem;
+        color: var(--accent-cyan);
+        letter-spacing: 2px;
+        margin-bottom: 10px;
+      }
+
+      .modal-desc {
+        font-size: 0.8rem;
+        color: #aaa;
+        margin-bottom: 20px;
+        line-height: 1.4;
+      }
+
+      .modal-input {
+        width: 100%;
+        background: #050505;
+        border: 1px solid var(--accent-cyan);
+        color: var(--text-bright);
+        padding: 10px;
+        font-family: inherit;
+        font-size: 0.9rem;
+        border-radius: 4px;
+        outline: none;
+        margin-bottom: 15px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .modal-btn {
+        width: 100%;
+        background: var(--accent-red);
+        color: #fff;
+        border: none;
+        padding: 10px;
+        font-family: inherit;
+        font-weight: bold;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      /* ===================== CALENDAR ===================== */
+      .cal-box {
+        background: var(--bg-primary);
+        border: 2px solid var(--accent-red);
+        border-radius: 6px;
+        width: 94%;
+        max-width: 1100px;
+        height: 88vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 30px rgba(225, 6, 0, 0.3);
+        overflow: hidden;
+      }
+
+      .cal-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 18px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--panel-border);
+        flex-shrink: 0;
+      }
+
+      .cal-title {
+        color: var(--accent-cyan);
+        letter-spacing: 2px;
+        font-size: 1rem;
+        font-weight: bold;
+      }
+
+      .cal-title small {
+        display: block;
+        color: #888;
+        font-size: 0.68rem;
+        letter-spacing: 1px;
+        margin-top: 3px;
+        font-weight: normal;
+      }
+
+      .cal-close {
+        background: transparent;
+        border: 1px solid var(--accent-red);
+        color: var(--accent-red);
+        width: 32px;
+        height: 32px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+      }
+
+      .cal-close:hover {
+        background: var(--accent-red);
+        color: #fff;
+      }
+
+      .cal-next {
+        margin: 14px 18px 0;
+        padding: 14px 16px;
+        border: 1px solid var(--accent-red);
+        border-radius: 6px;
+        background: linear-gradient(
+          90deg,
+          rgba(225, 6, 0, 0.18),
+          rgba(225, 6, 0, 0.03)
+        );
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+      }
+
+      .cal-next .label {
+        font-size: 0.68rem;
+        letter-spacing: 2px;
+        color: var(--accent-red);
+      }
+
+      .cal-next .name {
+        font-size: 1.15rem;
+        font-weight: bold;
+        margin: 3px 0;
+      }
+
+      .cal-next .sub {
+        font-size: 0.78rem;
+        color: #aaa;
+      }
+
+      .countdown {
+        display: flex;
+        gap: 8px;
+      }
+
+      .countdown div {
+        text-align: center;
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 4px;
+        padding: 6px 10px;
+        min-width: 56px;
+      }
+
+      .countdown b {
+        display: block;
+        font-size: 1.4rem;
+        color: var(--accent-cyan);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .countdown span {
+        font-size: 0.6rem;
+        color: #888;
+        letter-spacing: 1px;
+      }
+
+      .cal-filters {
+        display: flex;
+        gap: 8px;
+        padding: 14px 18px 0;
+        flex-shrink: 0;
+        flex-wrap: wrap;
+      }
+
+      .cal-filter {
+        background: transparent;
+        border: 1px solid #333;
+        color: #aaa;
+        font-size: 0.72rem;
+        letter-spacing: 1px;
+        padding: 5px 12px;
+        border-radius: 14px;
+        cursor: pointer;
+      }
+
+      .cal-filter.active,
+      .cal-filter:hover {
+        border-color: var(--accent-cyan);
+        color: var(--accent-cyan);
+        background: rgba(102, 252, 241, 0.08);
+      }
+
+      .cal-grid {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 18px 18px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 12px;
+        align-content: start;
+      }
+
+      .cal-grid::-webkit-scrollbar {
+        width: 6px;
+      }
+      .cal-grid::-webkit-scrollbar-thumb {
+        background: #222;
+        border-radius: 3px;
+      }
+
+      .race-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--panel-border);
+        border-left: 3px solid var(--accent-cyan);
+        border-radius: 6px;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .race-card.done {
+        opacity: 0.55;
+        border-left-color: #444;
+      }
+
+      .race-card.next {
+        border-color: var(--accent-red);
+        border-left-color: var(--accent-red);
+        box-shadow: 0 0 14px rgba(225, 6, 0, 0.3);
+      }
+
+      .race-card.cancelled {
+        opacity: 0.45;
+        border-left-color: var(--accent-red);
+        border-style: dashed;
+      }
+
+      .race-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.68rem;
+        letter-spacing: 1px;
+        color: #888;
+      }
+
+      .race-date {
+        color: var(--accent-cyan);
+        font-weight: bold;
+      }
+
+      .race-gp {
+        font-size: 1rem;
+        font-weight: bold;
+      }
+
+      .race-circuit {
+        font-size: 0.8rem;
+        color: var(--text-main);
+      }
+
+      .race-loc {
+        font-size: 0.72rem;
+        color: #888;
+      }
+
+      .race-stats {
+        display: flex;
+        gap: 12px;
+        font-size: 0.72rem;
+        color: #bbb;
+        padding: 6px 0;
+        border-top: 1px solid var(--panel-border);
+        border-bottom: 1px solid var(--panel-border);
+      }
+
+      .race-stats b {
+        color: var(--text-bright);
+      }
+
+      .race-desc {
+        font-size: 0.74rem;
+        line-height: 1.45;
+        color: #aaa;
+      }
+
+      .tag {
+        font-size: 0.62rem;
+        letter-spacing: 1px;
+        padding: 2px 7px;
+        border-radius: 10px;
+        border: 1px solid;
+      }
+
+      .tag-sprint {
+        color: #ffb020;
+        border-color: #ffb020;
+      }
+      .tag-next {
+        color: var(--accent-red);
+        border-color: var(--accent-red);
+      }
+      .tag-done {
+        color: #777;
+        border-color: #444;
+      }
+      .tag-cancel {
+        color: var(--accent-red);
+        border-color: var(--accent-red);
+      }
+      .tag-sat {
+        color: var(--accent-cyan);
+        border-color: var(--accent-cyan);
+      }
+
+      /* ===================== STANDINGS ===================== */
+      .st-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 14px 18px 0;
+        flex-shrink: 0;
+      }
+
+      .st-tabs {
+        display: flex;
+        gap: 8px;
+      }
+
+      .st-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.7rem;
+        color: #8e9aa7;
+        letter-spacing: 1px;
+      }
+
+      .st-meta .live {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--terminal-green);
+      }
+
+      .st-refresh {
+        background: transparent;
+        border: 1px solid var(--accent-cyan);
+        color: var(--accent-cyan);
+        font-size: 0.68rem;
+        letter-spacing: 1px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        cursor: pointer;
+      }
+
+      .st-refresh:hover {
+        background: var(--accent-cyan);
+        color: #000;
+      }
+
+      .st-refresh:disabled {
+        opacity: 0.5;
+        cursor: wait;
+      }
+
+      .st-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px 18px 18px;
+      }
+
+      .st-body::-webkit-scrollbar {
+        width: 6px;
+      }
+      .st-body::-webkit-scrollbar-thumb {
+        background: #222;
+        border-radius: 3px;
+      }
+
+      .st-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+
+      .st-table th {
+        text-align: left;
+        font-size: 0.65rem;
+        letter-spacing: 1.5px;
+        color: #888;
+        font-weight: normal;
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--panel-border);
+        position: sticky;
+        top: 0;
+        background: var(--bg-primary);
+        z-index: 1;
+      }
+
+      .st-table td {
+        padding: 9px 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        vertical-align: middle;
+      }
+
+      .st-table tr:hover td {
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .st-table .num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .st-pos {
+        font-weight: bold;
+        color: #888;
+        width: 44px;
+      }
+
+      .st-table tr.p1 .st-pos { color: #ffd34d; }
+      .st-table tr.p2 .st-pos { color: #cfd6dd; }
+      .st-table tr.p3 .st-pos { color: #d08a4e; }
+
+      .st-name {
+        font-weight: bold;
+      }
+
+      .st-name small {
+        color: #888;
+        font-weight: normal;
+        margin-left: 6px;
+        letter-spacing: 1px;
+      }
+
+      .st-team {
+        color: var(--text-main);
+      }
+
+      .st-pts {
+        font-weight: bold;
+        color: var(--accent-cyan);
+        min-width: 70px;
+      }
+
+      .st-bar {
+        width: 100%;
+        min-width: 80px;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .st-bar i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent-red), var(--accent-cyan));
+        border-radius: 3px;
+      }
+
+      .st-state {
+        text-align: center;
+        color: #8e9aa7;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+        padding: 50px 10px;
+        line-height: 1.7;
+      }
+
+      .st-state.err {
+        color: #ff8888;
+      }
+
+      /* ===================== AUTH GATE ===================== */
+      .login-gate {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        overflow-y: auto;
+        background:
+          linear-gradient(rgba(5, 7, 10, 0.88), rgba(5, 7, 10, 0.96)),
+          repeating-linear-gradient(0deg, transparent 0 39px, rgba(102, 252, 241, 0.04) 40px),
+          repeating-linear-gradient(90deg, transparent 0 39px, rgba(102, 252, 241, 0.04) 40px);
+        backdrop-filter: blur(8px);
+      }
+      .login-gate[hidden] {
+        display: none;
+      }
+      .login-card {
+        width: 100%;
+        max-width: 430px;
+        padding: 32px;
+        background: #111820;
+        border: 1px solid #3b2525;
+        border-top: 3px solid var(--accent-red);
+        border-radius: 8px;
+        box-shadow: 0 20px 70px rgba(0, 0, 0, 0.65), 0 0 30px rgba(225, 6, 0, 0.12);
+      }
+      .login-mark {
+        color: var(--accent-red);
+        font-size: 2rem;
+        margin-bottom: 14px;
+      }
+      .login-title {
+        color: #fff;
+        font-size: 1.35rem;
+        letter-spacing: 2px;
+        font-weight: 900;
+      }
+      .login-subtitle {
+        color: #8e9aa7;
+        font-size: 0.75rem;
+        line-height: 1.6;
+        margin: 10px 0 18px;
+      }
+      .login-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border: 1px solid #34414d;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 6px;
+      }
+      .login-tab {
+        padding: 10px;
+        background: transparent;
+        color: #8e9aa7;
+        border: 0;
+        font: inherit;
+        font-size: 0.75rem;
+        font-weight: bold;
+        letter-spacing: 1.5px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .login-tab + .login-tab {
+        border-left: 1px solid #34414d;
+      }
+      .login-tab.active {
+        background: rgba(102, 252, 241, 0.1);
+        color: var(--accent-cyan);
+      }
+      .login-label {
+        display: block;
+        color: var(--accent-cyan);
+        font-size: 0.7rem;
+        letter-spacing: 1.5px;
+        margin: 14px 0 7px;
+      }
+      .login-field {
+        width: 100%;
+        padding: 12px;
+        color: #fff;
+        background: #05070a;
+        border: 1px solid #34414d;
+        border-radius: 4px;
+        font: inherit;
+        font-size: 0.9rem;
+        outline: none;
+      }
+      .login-field:focus {
+        border-color: var(--accent-cyan);
+        box-shadow: 0 0 0 2px rgba(102, 252, 241, 0.1);
+      }
+      .login-submit {
+        width: 100%;
+        margin-top: 22px;
+        padding: 13px;
+        border: 0;
+        border-radius: 4px;
+        cursor: pointer;
+        background: var(--accent-red);
+        color: white;
+        font: inherit;
+        font-weight: bold;
+        letter-spacing: 1.5px;
+      }
+      .login-submit:disabled {
+        opacity: 0.6;
+        cursor: wait;
+      }
+      .login-error {
+        min-height: 1.2em;
+        margin-top: 12px;
+        color: #ff8888;
+        font-size: 0.75rem;
+        line-height: 1.5;
+      }
+      .login-error.ok {
+        color: var(--terminal-green);
+      }
+      .login-foot {
+        margin-top: 18px;
+        text-align: center;
+        color: #687582;
+        font-size: 0.65rem;
+        letter-spacing: 1px;
+      }
+      .pw-wrap {
+        position: relative;
+      }
+      .pw-wrap .login-field {
+        padding-right: 44px;
+      }
+      .pw-toggle {
+        position: absolute;
+        top: 0;
+        right: 0;
+        height: 100%;
+        width: 42px;
+        background: transparent;
+        border: 0;
+        color: #8e9aa7;
+        cursor: pointer;
+        font-size: 0.95rem;
+      }
+      .pw-toggle:hover,
+      .pw-toggle:focus-visible,
+      .pw-toggle[aria-pressed="true"] {
+        color: var(--accent-cyan);
+        outline: none;
+      }
+      [hidden] {
+        display: none !important;
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(0.9);
+          opacity: 0.4;
+        }
+        50% {
+          transform: scale(1.1);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(0.9);
+          opacity: 0.4;
+        }
+      }
+
+      @media (max-width: 900px) {
+        body {
+          overflow-y: auto;
+        }
+        .dashboard {
+          grid-template-columns: 1fr;
+          grid-template-rows: 320px auto 420px;
+          height: auto;
+        }
+        .telemetry-panel {
+          grid-column: 1;
+          grid-row: 2;
+          padding: 15px;
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .chat-panel {
+          grid-column: 1;
+          grid-row: 3;
+          height: 420px;
+        }
+        .logo-tag,
+        .status-indicator,
+        .user-chip {
+          display: none;
+        }
+        .logo {
+          font-size: 1rem;
+        }
+        .header-actions {
+          gap: 8px;
+        }
+        .site-button {
+          padding: 6px 10px;
+        }
+        .cal-box {
+          width: 100%;
+          height: 100vh;
+          border-radius: 0;
+        }
+        .st-bar-col,
+        .st-hide-sm {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Authentication gate: the stream is not loaded until Supabase confirms a session -->
+    <section class="login-gate" id="login-gate" aria-labelledby="login-title">
+      <form class="login-card" id="login-form" novalidate>
+        <div class="login-mark"><i class="fa-solid fa-flag-checkered"></i></div>
+        <div class="login-title" id="login-title">F1 // RACE.COMMAND</div>
+        <p class="login-subtitle" id="login-subtitle">
+          MISSION CONTROL ACCESS REQUIRED<br />Sign in to access the pit wall and streaming hub.
+        </p>
+
+        <div class="login-tabs" role="tablist">
+          <button type="button" class="login-tab active" id="tab-signin" role="tab" aria-selected="true">SIGN IN</button>
+          <button type="button" class="login-tab" id="tab-signup" role="tab" aria-selected="false">SIGN UP</button>
+        </div>
+
+        <label class="login-label" for="login-email">EMAIL ADDRESS</label>
+        <input class="login-field" id="login-email" type="email" autocomplete="username" placeholder="you@example.com" required />
+
+        <label class="login-label" for="login-password">PASSWORD</label>
+        <div class="pw-wrap">
+          <input class="login-field" id="login-password" type="password" autocomplete="current-password" placeholder="Enter your password" required />
+          <button type="button" class="pw-toggle" data-target="login-password" aria-label="Show password" aria-pressed="false"><i class="fa-solid fa-eye"></i></button>
+        </div>
+
+        <div id="confirm-wrap" hidden>
+          <label class="login-label" for="login-confirm">CONFIRM PASSWORD</label>
+          <div class="pw-wrap">
+            <input class="login-field" id="login-confirm" type="password" autocomplete="new-password" placeholder="Repeat your password" />
+            <button type="button" class="pw-toggle" data-target="login-confirm" aria-label="Show password" aria-pressed="false"><i class="fa-solid fa-eye"></i></button>
+          </div>
+        </div>
+
+        <button class="login-submit" id="login-submit" type="submit">
+          <i class="fa-solid fa-right-to-bracket"></i> AUTHENTICATE
+        </button>
+        <p class="login-error" id="login-error" role="alert" aria-live="polite"></p>
+        <p class="login-foot">SECURE ACCESS · SUPABASE AUTH</p>
+      </form>
+    </section>
+
+    <header>
+      <div class="logo-container">
+        <div class="logo">
+          <i class="fa-solid fa-flag-checkered"></i> F1 // RACE.COMMAND
+        </div>
+        <div class="logo-tag">HUB v2.0</div>
+      </div>
+      <div class="header-actions">
+        <div class="user-chip" id="user-chip" hidden>
+          <i class="fa-solid fa-user-astronaut"></i>
+          <span id="user-email"></span>
+        </div>
+        <button class="site-button outline" id="btn-open-standings">
+          <i class="fa-solid fa-ranking-star"></i> STANDINGS
+        </button>
+        <button class="site-button outline" id="btn-open-calendar">
+          <i class="fa-solid fa-calendar-days"></i> CALENDAR
+        </button>
+        <a
+          class="site-button"
+          href="https://fullraces.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <i class="fa-solid fa-circle-play"></i> FULL RACES
+        </a>
+        <button class="site-button danger" id="btn-logout" title="Sign out">
+          <i class="fa-solid fa-right-from-bracket"></i> LOG OUT
+        </button>
+        <div class="status-indicator">
+          <div class="pulse-dot"></div>
+          <span id="network-status">LIVE NETWORK</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="dashboard">
+      <!-- Main Video Screen -->
+      <div class="panel stream-container">
+        <div class="video-placeholder">
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#e10600"
+            stroke-width="2"
+          >
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <p>CONNECTING TO LIVE STREAM FEED...</p>
+        </div>
+        <iframe
+          data-stream-src="https://westreamf1.st/westreamf1.php"
+          loading="lazy"
+          name="frame"
+          scrolling="no"
+          allow="fullscreen"
+        ></iframe>
+      </div>
+
+      <!-- Live Telemetry HUD -->
+      <div class="panel telemetry-panel">
+        <div class="stat-box">
+          <div class="stat-label">
+            <i class="fa-solid fa-gauge-high"></i> SPEED
+          </div>
+          <div class="stat-value" id="telemetry-speed">312</div>
+          <div class="stat-label">KM/H</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">
+            <i class="fa-solid fa-microchip"></i> RPM
+          </div>
+          <div class="stat-value" id="telemetry-rpm">11800</div>
+          <div class="stat-label">REV/MIN</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label"><i class="fa-solid fa-gears"></i> GEAR</div>
+          <div
+            class="stat-value"
+            style="color: var(--accent-red)"
+            id="telemetry-gear"
+          >
+            7
+          </div>
+          <div class="stat-label">MANUAL</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label"><i class="fa-solid fa-bolt"></i> DRS</div>
+          <div
+            class="stat-value"
+            id="telemetry-drs"
+            style="color: var(--terminal-green)"
+          >
+            ENABLED
+          </div>
+          <div class="stat-label">WING STATE</div>
+        </div>
+      </div>
+
+      <!-- Real-Time Multi-User Pit Wall Chat -->
+      <div class="panel chat-panel">
+        <div class="panel-header">
+          <span><i class="fa-solid fa-headset"></i> Pit Wall Live Comms</span>
+          <span class="badge" id="online-count-badge"
+            ><i class="fa-solid fa-wifi"></i> CONNECTED</span
+          >
+        </div>
+
+        <div class="callsign-bar">
+          <div class="callsign-display">
+            <i class="fa-solid fa-id-badge"></i> CALLSIGN:
+            <span id="current-callsign-text">CREW_MEMBER</span>
+          </div>
+          <button class="btn-change-callsign" id="btn-open-callsign-modal">
+            CHANGE
+          </button>
+        </div>
+
+        <div class="chat-display" id="chat-display"></div>
+
+        <form class="chat-input-area" id="chat-form">
+          <input
+            type="text"
+            id="chat-input"
+            placeholder="Transmit to live pit wall..."
+            autocomplete="off"
+          />
+          <button type="submit" id="btn-chat-send">
+            <i class="fa-solid fa-paper-plane"></i> SEND
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Callsign Modal -->
+    <div class="modal-overlay" id="callsign-modal">
+      <div class="modal-box">
+        <div class="modal-title">
+          <i class="fa-solid fa-tower-broadcast"></i> IDENTIFICATION REQUIRED
+        </div>
+        <p class="modal-desc">
+          Enter your pit wall callsign/username to broadcast to all connected
+          hubs.
+        </p>
+        <input
+          type="text"
+          class="modal-input"
+          id="callsign-input"
+          placeholder="e.g. STRATEGY_LEAD, DRIVER_01"
+          maxlength="20"
+          autocomplete="off"
+        />
+        <button class="modal-btn" id="callsign-save-btn">
+          CONFIRM CALLSIGN
+        </button>
+      </div>
+    </div>
+
+    <!-- F1 Calendar Modal -->
+    <div class="modal-overlay" id="calendar-modal">
+      <div class="cal-box">
+        <div class="cal-head">
+          <div class="cal-title">
+            <i class="fa-solid fa-calendar-days"></i> F1 2026 RACE CALENDAR
+            <small id="cal-summary"></small>
+          </div>
+          <button class="cal-close" id="btn-close-calendar" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="cal-next" id="cal-next"></div>
+
+        <div class="cal-filters">
+          <button class="cal-filter active" data-filter="all">ALL</button>
+          <button class="cal-filter" data-filter="upcoming">UPCOMING</button>
+          <button class="cal-filter" data-filter="done">COMPLETED</button>
+          <button class="cal-filter" data-filter="sprint">SPRINT WEEKENDS</button>
+        </div>
+
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+    </div>
+
+    <!-- Standings Modal -->
+    <div class="modal-overlay" id="standings-modal">
+      <div class="cal-box">
+        <div class="cal-head">
+          <div class="cal-title">
+            <i class="fa-solid fa-ranking-star"></i> <span id="st-title">F1 CHAMPIONSHIP STANDINGS</span>
+            <small id="st-summary">LOADING...</small>
+          </div>
+          <button class="cal-close" id="btn-close-standings" aria-label="Close">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="st-toolbar">
+          <div class="st-tabs">
+            <button class="cal-filter active" data-st-tab="drivers">DRIVERS</button>
+            <button class="cal-filter" data-st-tab="constructors">CONSTRUCTORS</button>
+          </div>
+          <div class="st-meta">
+            <span class="live"><div class="pulse-dot"></div> AUTO-UPDATING</span>
+            <span id="st-updated">—</span>
+            <button class="st-refresh" id="btn-refresh-standings">
+              <i class="fa-solid fa-rotate"></i> REFRESH
+            </button>
+          </div>
+        </div>
+
+        <div class="st-body" id="st-body">
+          <div class="st-state"><i class="fa-solid fa-spinner fa-spin"></i> LOADING STANDINGS...</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        // 🚀 HARDCODED SUPABASE CREDENTIALS
+        const SUPABASE_URL = "https://qougzmzskiwaapsipzqm.supabase.co";
+        const SUPABASE_ANON_KEY =
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvdWd6bXpza2l3YWFwc2lwenFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2MTMwNzIsImV4cCI6MjEwNzE4OTA3Mn0.wWVF8ok4WAqab-WXHX0rJH19-7D7pau80OORzJzW2Xw";
+
+        const supabaseClient = supabase.createClient(
+          SUPABASE_URL,
+          SUPABASE_ANON_KEY,
+        );
+
+        // ===================== AUTH =====================
+        const loginGate = document.getElementById("login-gate");
+        const loginForm = document.getElementById("login-form");
+        const loginEmail = document.getElementById("login-email");
+        const loginPassword = document.getElementById("login-password");
+        const loginConfirm = document.getElementById("login-confirm");
+        const confirmWrap = document.getElementById("confirm-wrap");
+        const loginSubmit = document.getElementById("login-submit");
+        const loginError = document.getElementById("login-error");
+        const loginSubtitle = document.getElementById("login-subtitle");
+        const tabSignin = document.getElementById("tab-signin");
+        const tabSignup = document.getElementById("tab-signup");
+        const btnLogout = document.getElementById("btn-logout");
+        const userChip = document.getElementById("user-chip");
+        const userEmailEl = document.getElementById("user-email");
+        const streamFrame = document.querySelector(".stream-container iframe");
+        let hubUnlocked = false;
+        let authMode = "signin"; // "signin" | "signup"
+
+        const SUBMIT_LABEL = {
+          signin: '<i class="fa-solid fa-right-to-bracket"></i> AUTHENTICATE',
+          signup: '<i class="fa-solid fa-user-plus"></i> CREATE ACCOUNT',
+        };
+
+        function showMessage(text, ok = false) {
+          loginError.textContent = text;
+          loginError.classList.toggle("ok", ok);
+        }
+
+        function setAuthMode(mode) {
+          authMode = mode;
+          const isSignup = mode === "signup";
+          tabSignin.classList.toggle("active", !isSignup);
+          tabSignup.classList.toggle("active", isSignup);
+          tabSignin.setAttribute("aria-selected", String(!isSignup));
+          tabSignup.setAttribute("aria-selected", String(isSignup));
+          confirmWrap.hidden = !isSignup;
+          loginConfirm.required = isSignup;
+          loginPassword.autocomplete = isSignup ? "new-password" : "current-password";
+          loginPassword.placeholder = isSignup ? "At least 6 characters" : "Enter your password";
+          loginSubtitle.innerHTML = isSignup
+            ? "CREATE YOUR PIT WALL ACCOUNT<br />Register to access the streaming hub and live comms."
+            : "MISSION CONTROL ACCESS REQUIRED<br />Sign in to access the pit wall and streaming hub.";
+          loginSubmit.innerHTML = SUBMIT_LABEL[mode];
+          document.querySelectorAll(".pw-toggle").forEach((b) => setPasswordVisible(b, false));
+          showMessage("");
+        }
+
+        // Show / hide password toggles
+        function setPasswordVisible(btn, visible) {
+          const input = document.getElementById(btn.dataset.target);
+          input.type = visible ? "text" : "password";
+          btn.setAttribute("aria-pressed", String(visible));
+          btn.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+          btn.innerHTML = `<i class="fa-solid ${visible ? "fa-eye-slash" : "fa-eye"}"></i>`;
+        }
+
+        document.querySelectorAll(".pw-toggle").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            setPasswordVisible(btn, btn.getAttribute("aria-pressed") !== "true"),
+          );
+        });
+
+        tabSignin.addEventListener("click", () => setAuthMode("signin"));
+        tabSignup.addEventListener("click", () => setAuthMode("signup"));
+
+        function unlockHub(session) {
+          if (session && session.user) {
+            userEmailEl.textContent = session.user.email || "";
+            userChip.hidden = !session.user.email;
+          }
+          if (hubUnlocked) return;
+          hubUnlocked = true;
+          loginGate.hidden = true;
+          btnLogout.hidden = false;
+          // Start loading the F1 stream only after authentication succeeds.
+          if (!streamFrame.hasAttribute("src")) {
+            streamFrame.src = streamFrame.dataset.streamSrc;
+          }
+          connectChat();
+          startStandingsAutoUpdate();
+        }
+
+        function lockHub() {
+          hubUnlocked = false;
+          streamFrame.removeAttribute("src");
+          disconnectChat();
+          stopStandingsAutoUpdate();
+          closeStandings();
+          chatDisplay.innerHTML = "";
+          userChip.hidden = true;
+          userEmailEl.textContent = "";
+          btnLogout.hidden = true;
+          loginForm.reset();
+          setAuthMode("signin");
+          loginGate.hidden = false;
+        }
+
+        loginForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          showMessage("");
+          const email = loginEmail.value.trim();
+          const password = loginPassword.value;
+
+          if (!email || !password) {
+            showMessage("Enter your email and password.");
+            return;
+          }
+          if (authMode === "signup") {
+            if (password.length < 6) {
+              showMessage("Password must be at least 6 characters.");
+              return;
+            }
+            if (password !== loginConfirm.value) {
+              showMessage("Passwords do not match.");
+              return;
+            }
+          }
+
+          loginSubmit.disabled = true;
+          loginSubmit.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i> ' +
+            (authMode === "signup" ? "CREATING..." : "VERIFYING...");
+
+          try {
+            if (authMode === "signup") {
+              const { data, error } = await supabaseClient.auth.signUp({
+                email,
+                password,
+                options: { emailRedirectTo: window.location.href.split("#")[0] },
+              });
+              if (error) throw error;
+
+              // Supabase returns an obfuscated user with no identities when the email already exists.
+              if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+                throw new Error("An account with this email already exists. Try signing in.");
+              }
+
+              if (data.session) {
+                // Email confirmation is disabled in the project: user is signed in immediately.
+                unlockHub(data.session);
+              } else {
+                // Email confirmation is required.
+                setAuthMode("signin");
+                loginEmail.value = email;
+                showMessage("Account created. Check your email to confirm, then sign in.", true);
+              }
+            } else {
+              const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email,
+                password,
+              });
+              if (error) throw error;
+              if (!data.session) throw new Error("Sign-in did not return a session. Please try again.");
+              unlockHub(data.session);
+            }
+          } catch (error) {
+            const msg = error && error.message ? error.message : "";
+            showMessage(
+              msg === "Invalid login credentials"
+                ? "Email or password is incorrect."
+                : msg === "Email not confirmed"
+                  ? "Please confirm your email first, then sign in."
+                  : msg || "Something went wrong. Please try again.",
+            );
+          } finally {
+            loginSubmit.disabled = false;
+            loginSubmit.innerHTML = SUBMIT_LABEL[authMode];
+          }
+        });
+
+        btnLogout.addEventListener("click", async () => {
+          btnLogout.disabled = true;
+          try {
+            const { error } = await supabaseClient.auth.signOut();
+            if (error) throw error;
+          } catch (err) {
+            // Even if the network call fails, clear the local session and lock the UI.
+            try {
+              await supabaseClient.auth.signOut({ scope: "local" });
+            } catch (_) {}
+          } finally {
+            btnLogout.disabled = false;
+            lockHub();
+          }
+        });
+
+        // ===================== TELEMETRY / CHAT =====================
+        const speedEl = document.getElementById("telemetry-speed");
+        const rpmEl = document.getElementById("telemetry-rpm");
+        const gearEl = document.getElementById("telemetry-gear");
+        const drsEl = document.getElementById("telemetry-drs");
+
+        const chatDisplay = document.getElementById("chat-display");
+        const chatForm = document.getElementById("chat-form");
+        const chatInput = document.getElementById("chat-input");
+        const currentCallsignText = document.getElementById(
+          "current-callsign-text",
+        );
+        const callsignModal = document.getElementById("callsign-modal");
+        const callsignInput = document.getElementById("callsign-input");
+        const callsignSaveBtn = document.getElementById("callsign-save-btn");
+        const btnOpenCallsignModal = document.getElementById(
+          "btn-open-callsign-modal",
+        );
+
+        let myCallsign =
+          localStorage.getItem("f1_hub_callsign") ||
+          `CREW_${Math.floor(100 + Math.random() * 900)}`;
+        currentCallsignText.textContent = myCallsign;
+
+        // Telemetry animation
+        setInterval(() => {
+          const speed = Math.floor(Math.random() * (335 - 280) + 280);
+          const rpm = Math.floor(Math.random() * (12200 - 11000) + 11000);
+          const gear = speed > 310 ? 8 : 7;
+          const drsActive = speed > 300;
+
+          speedEl.textContent = speed;
+          rpmEl.textContent = rpm;
+          gearEl.textContent = gear;
+          drsEl.textContent = drsActive ? "ENABLED" : "OFF";
+          drsEl.style.color = drsActive ? "var(--terminal-green)" : "#555";
+        }, 300);
+
+        function renderMessage({ user, message, timestamp, isSystem = false }) {
+          const entry = document.createElement("div");
+          entry.className = "chat-entry";
+
+          if (isSystem) {
+            entry.classList.add("is-system");
+          } else if (user === myCallsign) {
+            entry.classList.add("is-me");
+          }
+
+          const date = timestamp ? new Date(timestamp) : new Date();
+          const timeStr = date.toTimeString().split(" ")[0];
+
+          const timeSpan = document.createElement("span");
+          timeSpan.className = "chat-time";
+          timeSpan.textContent = `[${timeStr}]`;
+
+          const userSpan = document.createElement("span");
+          userSpan.className = `chat-user ${user === myCallsign ? "self" : ""}`;
+          userSpan.textContent = isSystem ? " [SYSTEM]:" : ` ${user}:`;
+
+          const msgSpan = document.createElement("span");
+          msgSpan.className = "chat-message";
+          msgSpan.textContent = message;
+
+          entry.appendChild(timeSpan);
+          entry.appendChild(userSpan);
+          entry.appendChild(msgSpan);
+
+          chatDisplay.appendChild(entry);
+
+          while (chatDisplay.children.length > 50) {
+            chatDisplay.removeChild(chatDisplay.firstChild);
+          }
+
+          chatDisplay.scrollTop = chatDisplay.scrollHeight;
+        }
+
+        // 📡 SUPABASE REALTIME BROADCAST CHANNEL (only connected while signed in)
+        let pitChannel = null;
+
+        function connectChat() {
+          if (pitChannel) return;
+          renderMessage({
+            user: "SYSTEM",
+            message: "Supabase Realtime Pit Wall Channel Connected.",
+            timestamp: Date.now(),
+            isSystem: true,
+          });
+          pitChannel = supabaseClient.channel("pitwall_live");
+          pitChannel
+            .on("broadcast", { event: "chat_msg" }, (payload) => {
+              renderMessage(payload.payload);
+            })
+            .subscribe();
+        }
+
+        function disconnectChat() {
+          if (pitChannel) {
+            supabaseClient.removeChannel(pitChannel);
+            pitChannel = null;
+          }
+        }
+
+        // Transmit new message to ALL devices
+        chatForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const msgText = chatInput.value.trim();
+          if (!msgText || !pitChannel) return;
+
+          const payload = {
+            user: myCallsign,
+            message: msgText,
+            timestamp: Date.now(),
+          };
+
+          // Render locally
+          renderMessage(payload);
+
+          // Broadcast over Supabase to other devices
+          pitChannel.send({
+            type: "broadcast",
+            event: "chat_msg",
+            payload: payload,
+          });
+
+          chatInput.value = "";
+        });
+
+        function openCallsignModal() {
+          callsignInput.value = myCallsign;
+          callsignModal.classList.add("active");
+          callsignInput.focus();
+        }
+
+        function closeCallsignModal() {
+          callsignModal.classList.remove("active");
+        }
+
+        btnOpenCallsignModal.addEventListener("click", openCallsignModal);
+        callsignSaveBtn.addEventListener("click", saveCallsign);
+        callsignInput.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") saveCallsign();
+        });
+
+        function saveCallsign() {
+          const val = callsignInput.value
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9_]/g, "_");
+          if (val) {
+            myCallsign = val;
+            localStorage.setItem("f1_hub_callsign", myCallsign);
+            currentCallsignText.textContent = myCallsign;
+            renderMessage({
+              user: "SYSTEM",
+              message: `Callsign updated to ${myCallsign}.`,
+              timestamp: Date.now(),
+              isSystem: true,
+            });
+          }
+          closeCallsignModal();
+        }
+
+        // ===================== F1 CALENDAR =====================
+        // gp, circuit, loc, date (race day, YYYY-MM-DD), weekend (display),
+        // km (lap length), laps, sprint, sat (Saturday race), cancelled, desc
+        const RACES = [
+          { gp: "Australian Grand Prix", circuit: "Albert Park Circuit", loc: "Melbourne, Australia", date: "2026-03-08", weekend: "6–8 Mar", km: 5.278, laps: 58, desc: "Season opener around a lake in Melbourne's Albert Park, a fast street-style layout." },
+          { gp: "Chinese Grand Prix", circuit: "Shanghai International Circuit", loc: "Shanghai, China", date: "2026-03-15", weekend: "13–15 Mar", km: 5.451, laps: 56, sprint: true, desc: "Famous for its huge snail-shaped opening complex and a long back straight." },
+          { gp: "Japanese Grand Prix", circuit: "Suzuka Circuit", loc: "Suzuka, Japan", date: "2026-03-29", weekend: "27–29 Mar", km: 5.807, laps: 53, desc: "Figure-eight layout and a driver favourite, with the flowing Esses and 130R." },
+          { gp: "Bahrain Grand Prix", circuit: "Bahrain International Circuit", loc: "Sakhir, Bahrain", date: "2026-04-12", weekend: "10–12 Apr", km: 5.412, laps: 57, cancelled: true, desc: "Cancelled for 2026." },
+          { gp: "Saudi Arabian Grand Prix", circuit: "Jeddah Corniche Circuit", loc: "Jeddah, Saudi Arabia", date: "2026-04-19", weekend: "17–19 Apr", km: 6.174, laps: 50, cancelled: true, desc: "Cancelled for 2026." },
+          { gp: "Miami Grand Prix", circuit: "Miami International Autodrome", loc: "Miami Gardens, USA", date: "2026-05-03", weekend: "1–3 May", km: 5.412, laps: 57, sprint: true, desc: "Purpose-built track laid out around the Hard Rock Stadium complex." },
+          { gp: "Canadian Grand Prix", circuit: "Circuit Gilles Villeneuve", loc: "Montreal, Canada", date: "2026-05-24", weekend: "22–24 May", km: 4.361, laps: 70, sprint: true, desc: "Stop-and-go island circuit, home of the infamous Wall of Champions." },
+          { gp: "Monaco Grand Prix", circuit: "Circuit de Monaco", loc: "Monte Carlo, Monaco", date: "2026-06-07", weekend: "5–7 Jun", km: 3.337, laps: 78, desc: "The shortest and slowest track on the calendar, where qualifying is king." },
+          { gp: "Barcelona-Catalunya Grand Prix", circuit: "Circuit de Barcelona-Catalunya", loc: "Montmeló, Spain", date: "2026-06-14", weekend: "12–14 Jun", km: 4.657, laps: 66, desc: "A long-time testing venue that rewards strong aerodynamic balance." },
+          { gp: "Austrian Grand Prix", circuit: "Red Bull Ring", loc: "Spielberg, Austria", date: "2026-06-28", weekend: "26–28 Jun", km: 4.318, laps: 71, desc: "Short, punchy lap in the Styrian hills with big elevation changes." },
+          { gp: "British Grand Prix", circuit: "Silverstone Circuit", loc: "Silverstone, UK", date: "2026-07-05", weekend: "3–5 Jul", km: 5.891, laps: 52, sprint: true, desc: "Home of the first-ever world championship race, with fast sweepers like Maggotts and Becketts." },
+          { gp: "Belgian Grand Prix", circuit: "Circuit de Spa-Francorchamps", loc: "Stavelot, Belgium", date: "2026-07-19", weekend: "17–19 Jul", km: 7.004, laps: 44, desc: "The longest lap of the season, featuring Eau Rouge and Raidillon." },
+          { gp: "Hungarian Grand Prix", circuit: "Hungaroring", loc: "Mogyoród, Hungary", date: "2026-07-26", weekend: "24–26 Jul", km: 4.381, laps: 70, desc: "Tight and twisty, often nicknamed Monaco without the walls." },
+          { gp: "Dutch Grand Prix", circuit: "Circuit Zandvoort", loc: "Zandvoort, Netherlands", date: "2026-08-23", weekend: "21–23 Aug", km: 4.259, laps: 72, sprint: true, desc: "Old-school dune circuit with steeply banked corners and sea-side crowds." },
+          { gp: "Italian Grand Prix", circuit: "Autodromo Nazionale Monza", loc: "Monza, Italy", date: "2026-09-06", weekend: "4–6 Sep", km: 5.793, laps: 53, desc: "The Temple of Speed, with long straights and some of the highest average speeds." },
+          { gp: "Spanish Grand Prix (Madrid)", circuit: "Madring (IFEMA Madrid)", loc: "Madrid, Spain", date: "2026-09-13", weekend: "11–13 Sep", km: 5.47, laps: null, desc: "Brand-new hybrid street circuit debuting in 2026, featuring a banked corner." },
+          { gp: "Azerbaijan Grand Prix", circuit: "Baku City Circuit", loc: "Baku, Azerbaijan", date: "2026-09-26", weekend: "25–26 Sep", km: 6.003, laps: 51, sat: true, desc: "Super-long flat-out straight and a tight medieval old-town section; race held on Saturday." },
+          { gp: "Singapore Grand Prix", circuit: "Marina Bay Street Circuit", loc: "Singapore", date: "2026-10-11", weekend: "9–11 Oct", km: 4.94, laps: 62, sprint: true, desc: "Hot, humid night race under floodlights that tests drivers physically." },
+          { gp: "United States Grand Prix", circuit: "Circuit of the Americas", loc: "Austin, USA", date: "2026-10-25", weekend: "23–25 Oct", km: 5.513, laps: 56, desc: "Steep uphill run into Turn 1 and a mix of corners inspired by famous tracks." },
+          { gp: "Mexico City Grand Prix", circuit: "Autódromo Hermanos Rodríguez", loc: "Mexico City, Mexico", date: "2026-11-01", weekend: "30 Oct–1 Nov", km: 4.304, laps: 71, desc: "High altitude thins the air, plus a stadium section packed with fans." },
+          { gp: "São Paulo Grand Prix", circuit: "Autódromo José Carlos Pace (Interlagos)", loc: "São Paulo, Brazil", date: "2026-11-08", weekend: "6–8 Nov", km: 4.309, laps: 71, desc: "Short anti-clockwise lap with elevation changes and a passionate crowd." },
+          { gp: "Las Vegas Grand Prix", circuit: "Las Vegas Strip Circuit", loc: "Las Vegas, USA", date: "2026-11-21", weekend: "19–21 Nov", km: 6.201, laps: 50, desc: "Late-night race down the famous Strip with very long, fast straights." },
+          { gp: "Qatar Grand Prix", circuit: "Lusail International Circuit", loc: "Lusail, Qatar", date: "2026-11-29", weekend: "27–29 Nov", km: 5.419, laps: 57, desc: "Fast, flowing night race with many medium and high-speed corners." },
+          { gp: "Abu Dhabi Grand Prix", circuit: "Yas Marina Circuit", loc: "Abu Dhabi, UAE", date: "2026-12-06", weekend: "4–6 Dec", km: 5.281, laps: 58, desc: "Twilight season finale with a famous pit-lane tunnel exit." },
+        ];
+
+        const calModal = document.getElementById("calendar-modal");
+        const calGrid = document.getElementById("cal-grid");
+        const calNext = document.getElementById("cal-next");
+        const calSummary = document.getElementById("cal-summary");
+        let calFilter = "all";
+
+        function raceDay(r) {
+          const [y, m, d] = r.date.split("-").map(Number);
+          return new Date(y, m - 1, d);
+        }
+
+        function startOfToday() {
+          const n = new Date();
+          return new Date(n.getFullYear(), n.getMonth(), n.getDate());
+        }
+
+        function fmtDate(r) {
+          return raceDay(r)
+            .toLocaleDateString("en-GB", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+            .toUpperCase();
+        }
+
+        function esc(s) {
+          const el = document.createElement("div");
+          el.textContent = s;
+          return el.innerHTML;
+        }
+
+        function getNextRace() {
+          const today = startOfToday();
+          return RACES.find((r) => !r.cancelled && raceDay(r) >= today);
+        }
+
+        function renderCalendar() {
+          const today = startOfToday();
+          const next = getNextRace();
+          const held = RACES.filter((r) => !r.cancelled);
+          const doneCount = held.filter((r) => raceDay(r) < today).length;
+
+          calSummary.textContent = `${held.length} RACES · ${doneCount} COMPLETED · ${held.length - doneCount} REMAINING`;
+
+          let roundNo = 0;
+          const cards = RACES.map((r) => {
+            if (!r.cancelled) roundNo++;
+            return { r, round: r.cancelled ? null : roundNo };
+          }).filter(({ r }) => {
+            const done = raceDay(r) < today;
+            if (calFilter === "upcoming") return !r.cancelled && !done;
+            if (calFilter === "done") return !r.cancelled && done;
+            if (calFilter === "sprint") return !!r.sprint;
+            return true;
+          });
+
+          calGrid.innerHTML = cards
+            .map(({ r, round }) => {
+              const done = raceDay(r) < today;
+              const isNext = next === r;
+              const cls = r.cancelled
+                ? "cancelled"
+                : isNext
+                  ? "next"
+                  : done
+                    ? "done"
+                    : "";
+              const tags = [
+                r.cancelled ? '<span class="tag tag-cancel">CANCELLED</span>' : "",
+                isNext ? '<span class="tag tag-next">NEXT RACE</span>' : "",
+                !r.cancelled && done ? '<span class="tag tag-done">COMPLETED</span>' : "",
+                r.sprint ? '<span class="tag tag-sprint">SPRINT</span>' : "",
+                r.sat ? '<span class="tag tag-sat">SATURDAY RACE</span>' : "",
+              ].join(" ");
+              return `
+                <div class="race-card ${cls}">
+                  <div class="race-top">
+                    <span>${round ? "ROUND " + String(round).padStart(2, "0") : "ROUND —"}</span>
+                    <span class="race-date">${fmtDate(r)}</span>
+                  </div>
+                  <div class="race-gp">${esc(r.gp)}</div>
+                  <div class="race-circuit"><i class="fa-solid fa-road"></i> ${esc(r.circuit)}</div>
+                  <div class="race-loc"><i class="fa-solid fa-location-dot"></i> ${esc(r.loc)} · Weekend ${esc(r.weekend)}</div>
+                  <div class="race-stats">
+                    <span>LAP <b>${r.km} km</b></span>
+                    <span>LAPS <b>${r.laps ?? "TBC"}</b></span>
+                  </div>
+                  <div class="race-desc">${esc(r.desc)}</div>
+                  <div>${tags}</div>
+                </div>`;
+            })
+            .join("");
+        }
+
+        function renderNextBanner() {
+          const next = getNextRace();
+          if (!next) {
+            calNext.innerHTML =
+              '<div><div class="label">SEASON COMPLETE</div><div class="name">The 2026 season has finished</div></div>';
+            return;
+          }
+          const diff = Math.max(0, raceDay(next).getTime() + 14 * 3600 * 1000 - Date.now());
+          const d = Math.floor(diff / 86400000);
+          const h = Math.floor((diff % 86400000) / 3600000);
+          const m = Math.floor((diff % 3600000) / 60000);
+          const s = Math.floor((diff % 60000) / 1000);
+          calNext.innerHTML = `
+            <div>
+              <div class="label"><i class="fa-solid fa-flag-checkered"></i> NEXT RACE</div>
+              <div class="name">${esc(next.gp)}</div>
+              <div class="sub">${esc(next.circuit)} · ${esc(next.loc)} · ${fmtDate(next)}</div>
+            </div>
+            <div class="countdown">
+              <div><b>${d}</b><span>DAYS</span></div>
+              <div><b>${String(h).padStart(2, "0")}</b><span>HRS</span></div>
+              <div><b>${String(m).padStart(2, "0")}</b><span>MIN</span></div>
+              <div><b>${String(s).padStart(2, "0")}</b><span>SEC</span></div>
+            </div>`;
+        }
+
+        let countdownTimer = null;
+
+        function openCalendar() {
+          renderNextBanner();
+          renderCalendar();
+          calModal.classList.add("active");
+          clearInterval(countdownTimer);
+          countdownTimer = setInterval(renderNextBanner, 1000);
+        }
+
+        function closeCalendar() {
+          calModal.classList.remove("active");
+          clearInterval(countdownTimer);
+        }
+
+        document
+          .getElementById("btn-open-calendar")
+          .addEventListener("click", openCalendar);
+        document
+          .getElementById("btn-close-calendar")
+          .addEventListener("click", closeCalendar);
+        calModal.addEventListener("click", (e) => {
+          if (e.target === calModal) closeCalendar();
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") closeCalendar();
+        });
+        document.querySelectorAll(".cal-filter[data-filter]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            document
+              .querySelectorAll(".cal-filter[data-filter]")
+              .forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            calFilter = btn.dataset.filter;
+            renderCalendar();
+          });
+        });
+
+        // ===================== F1 STANDINGS (auto-updating) =====================
+        // Data: Jolpica F1 API (Ergast-compatible). "current" always resolves to the
+        // latest season, so no yearly changes are needed. Refreshes every 5 minutes
+        // while signed in, and again whenever the tab becomes visible.
+        const STANDINGS_API = "https://api.jolpi.ca/ergast/f1/current";
+        const STANDINGS_REFRESH_MS = 5 * 60 * 1000;
+
+        const standingsModal = document.getElementById("standings-modal");
+        const stBody = document.getElementById("st-body");
+        const stSummary = document.getElementById("st-summary");
+        const stTitle = document.getElementById("st-title");
+        const stUpdated = document.getElementById("st-updated");
+        const btnRefreshStandings = document.getElementById("btn-refresh-standings");
+
+        let standings = null; // { season, round, drivers: [], constructors: [], fetchedAt }
+        let standingsError = null;
+        let standingsTab = "drivers";
+        let standingsTimer = null;
+        let standingsLoading = false;
+
+        async function fetchJson(url) {
+          const res = await fetch(url, { cache: "no-store" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        }
+
+        async function loadStandings() {
+          if (standingsLoading) return;
+          standingsLoading = true;
+          btnRefreshStandings.disabled = true;
+          try {
+            const [dj, cj] = await Promise.all([
+              fetchJson(`${STANDINGS_API}/driverstandings.json`),
+              fetchJson(`${STANDINGS_API}/constructorstandings.json`),
+            ]);
+            const dl = dj?.MRData?.StandingsTable?.StandingsLists?.[0];
+            const cl = cj?.MRData?.StandingsTable?.StandingsLists?.[0];
+            if (!dl && !cl) throw new Error("No standings published yet");
+
+            standings = {
+              season: (dl || cl).season,
+              round: (dl || cl).round,
+              drivers: (dl?.DriverStandings || []).map((s) => ({
+                pos: Number(s.position),
+                name: `${s.Driver.givenName} ${s.Driver.familyName}`,
+                code: s.Driver.code || "",
+                team: (s.Constructors || []).map((c) => c.name).join(" / "),
+                points: Number(s.points),
+                wins: Number(s.wins),
+              })),
+              constructors: (cl?.ConstructorStandings || []).map((s) => ({
+                pos: Number(s.position),
+                name: s.Constructor.name,
+                nationality: s.Constructor.nationality || "",
+                points: Number(s.points),
+                wins: Number(s.wins),
+              })),
+              fetchedAt: new Date(),
+            };
+            standingsError = null;
+          } catch (err) {
+            standingsError = err && err.message ? err.message : "Request failed";
+          } finally {
+            standingsLoading = false;
+            btnRefreshStandings.disabled = false;
+            renderStandings();
+          }
+        }
+
+        function renderStandings() {
+          if (!standings) {
+            stSummary.textContent = standingsError ? "UNAVAILABLE" : "LOADING...";
+            stUpdated.textContent = "—";
+            stBody.innerHTML = standingsError
+              ? `<div class="st-state err"><i class="fa-solid fa-triangle-exclamation"></i> COULD NOT LOAD STANDINGS<br />${esc(standingsError)}<br />Will retry automatically.</div>`
+              : '<div class="st-state"><i class="fa-solid fa-spinner fa-spin"></i> LOADING STANDINGS...</div>';
+            return;
+          }
+
+          stTitle.textContent = `F1 ${standings.season} CHAMPIONSHIP STANDINGS`;
+          stSummary.textContent = `AFTER ROUND ${standings.round} · ${standings.drivers.length} DRIVERS · ${standings.constructors.length} CONSTRUCTORS`;
+          stUpdated.textContent =
+            (standingsError ? "UPDATE FAILED · SHOWING LAST DATA · " : "UPDATED ") +
+            standings.fetchedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+          const rows = standingsTab === "drivers" ? standings.drivers : standings.constructors;
+          if (!rows.length) {
+            stBody.innerHTML = '<div class="st-state">NO STANDINGS PUBLISHED YET FOR THIS SEASON</div>';
+            return;
+          }
+          const max = Math.max(...rows.map((r) => r.points), 1);
+          const bar = (pts) => `<div class="st-bar"><i style="width:${Math.max(2, (pts / max) * 100)}%"></i></div>`;
+
+          let head, body;
+          if (standingsTab === "drivers") {
+            head = `<tr><th>POS</th><th>DRIVER</th><th class="st-hide-sm">TEAM</th><th class="num">WINS</th><th class="num">PTS</th><th class="st-bar-col"></th></tr>`;
+            body = rows
+              .map(
+                (r) => `<tr class="${r.pos <= 3 ? "p" + r.pos : ""}">
+                  <td class="st-pos">${r.pos}</td>
+                  <td class="st-name">${esc(r.name)}<small>${esc(r.code)}</small></td>
+                  <td class="st-team st-hide-sm">${esc(r.team)}</td>
+                  <td class="num">${r.wins}</td>
+                  <td class="num st-pts">${r.points}</td>
+                  <td class="st-bar-col">${bar(r.points)}</td>
+                </tr>`,
+              )
+              .join("");
+          } else {
+            head = `<tr><th>POS</th><th>CONSTRUCTOR</th><th class="st-hide-sm">NATIONALITY</th><th class="num">WINS</th><th class="num">PTS</th><th class="st-bar-col"></th></tr>`;
+            body = rows
+              .map(
+                (r) => `<tr class="${r.pos <= 3 ? "p" + r.pos : ""}">
+                  <td class="st-pos">${r.pos}</td>
+                  <td class="st-name">${esc(r.name)}</td>
+                  <td class="st-team st-hide-sm">${esc(r.nationality)}</td>
+                  <td class="num">${r.wins}</td>
+                  <td class="num st-pts">${r.points}</td>
+                  <td class="st-bar-col">${bar(r.points)}</td>
+                </tr>`,
+              )
+              .join("");
+          }
+          stBody.innerHTML = `<table class="st-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+        }
+
+        function startStandingsAutoUpdate() {
+          loadStandings();
+          clearInterval(standingsTimer);
+          standingsTimer = setInterval(loadStandings, STANDINGS_REFRESH_MS);
+        }
+
+        function stopStandingsAutoUpdate() {
+          clearInterval(standingsTimer);
+          standingsTimer = null;
+          standings = null;
+          standingsError = null;
+        }
+
+        function openStandings() {
+          renderStandings();
+          standingsModal.classList.add("active");
+          // Make sure what's on screen is fresh if the data is older than a minute.
+          if (!standings || Date.now() - standings.fetchedAt.getTime() > 60 * 1000) {
+            loadStandings();
+          }
+        }
+
+        function closeStandings() {
+          standingsModal.classList.remove("active");
+        }
+
+        document.getElementById("btn-open-standings").addEventListener("click", openStandings);
+        document.getElementById("btn-close-standings").addEventListener("click", closeStandings);
+        btnRefreshStandings.addEventListener("click", loadStandings);
+        standingsModal.addEventListener("click", (e) => {
+          if (e.target === standingsModal) closeStandings();
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") closeStandings();
+        });
+        document.querySelectorAll(".cal-filter[data-st-tab]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            document
+              .querySelectorAll(".cal-filter[data-st-tab]")
+              .forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            standingsTab = btn.dataset.stTab;
+            renderStandings();
+          });
+        });
+        document.addEventListener("visibilitychange", () => {
+          if (
+            document.visibilityState === "visible" &&
+            hubUnlocked &&
+            (!standings || Date.now() - standings.fetchedAt.getTime() > STANDINGS_REFRESH_MS)
+          ) {
+            loadStandings();
+          }
+        });
+
+        // ===================== SESSION WIRING (runs last) =====================
+        btnLogout.hidden = true;
+        setAuthMode("signin");
+
+        // Returning users with a valid Supabase session proceed automatically
+        // (this also handles the redirect back from the email-confirmation link).
+        supabaseClient.auth.getSession().then(({ data, error }) => {
+          if (error) {
+            showMessage("Could not verify your session. Please sign in again.");
+            return;
+          }
+          if (data.session) unlockHub(data.session);
+        });
+
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+          if (session) unlockHub(session);
+          else if (event === "SIGNED_OUT") lockHub();
+        });
+      });
+    </script>
+  </body>
+</html>
